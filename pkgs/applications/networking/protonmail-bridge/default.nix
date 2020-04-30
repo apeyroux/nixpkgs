@@ -1,8 +1,8 @@
-{ stdenv, fetchurl, lib, qtbase, qtmultimedia, qtsvg, qtdeclarative, qttools, qtgraphicaleffects, qtquickcontrols2, full
-, libsecret, libGL, libpulseaudio, glib, wrapQtAppsHook, mkDerivation }:
+{ stdenv, fetchurl, lib, pkgs, qtbase, qtmultimedia, qtsvg, qtdeclarative, qttools, qtgraphicaleffects, qtquickcontrols2, full
+, libsecret, libGL, libpulseaudio, glib, wrapQtAppsHook, fetchFromGitHub, git, buildGoPackage }:
 
 let
-  version = "1.2.3-1";
+  version = "1.2.6-git";
 
   description = ''
     An application that runs on your computer in the background and seamlessly encrypts
@@ -10,57 +10,28 @@ let
 
     To work, gnome-keyring service must be enabled.
   '';
-in mkDerivation {
+in buildGoPackage {
   pname = "protonmail-bridge";
   inherit version;
 
-  src = fetchurl {
-    url = "https://protonmail.com/download/protonmail-bridge_${version}_amd64.deb";
-    sha256 = "032ggk9fvd19fbsqkzwzwh0hpyg8gpkrin71di7zsx6ias5innw1";
+  src = fetchFromGitHub {
+    owner = "ProtonMail";
+    repo = "proton-bridge";
+    rev = "409abba995e7add59ab8e0391dbe1f4132695fc0";
+    sha256 = "1iapk5kca2xilhmh5akf8x0j7wk32f91l3xjp8vd5065206zpgwb";
   };
 
-  sourceRoot = ".";
+  # postFixup =  ''
+  #   substituteInPlace $out/share/applications/protonmail-bridge.desktop \
+  #     --replace "/usr/" "$out/" \
+  #     --replace "Exec=protonmail-bridge" "Exec=$out/bin/protonmail-bridge"
+  # '';
 
-  unpackCmd = ''
-    ar p "$src" data.tar.xz | tar xJ
-  '';
+  # buildFlagsArray = 
 
-  installPhase = ''
-    mkdir -p $out/{bin,lib,share}
-
-    cp -r usr/lib/protonmail/bridge/protonmail-bridge $out/lib
-    cp -r usr/share $out
-
-    ln -s $out/lib/protonmail-bridge $out/bin/protonmail-bridge
-  '';
-
-  postFixup = let
-    rpath = lib.makeLibraryPath [
-      stdenv.cc.cc.lib
-      qtbase
-      qtquickcontrols2
-      qtgraphicaleffects
-      qtmultimedia
-      qtsvg
-      qtdeclarative
-      qttools
-      libGL
-      libsecret
-      libpulseaudio
-      glib
-    ];
-  in ''
-    patchelf \
-      --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
-      --set-rpath "${rpath}" \
-      $out/lib/protonmail-bridge
-
-    substituteInPlace $out/share/applications/ProtonMail_Bridge.desktop \
-      --replace "/usr/" "$out/" \
-      --replace "Exec=protonmail-bridge" "Exec=$out/bin/protonmail-bridge"
-  '';
-
-  buildInputs = [ qtbase qtquickcontrols2 qtmultimedia qtgraphicaleffects qtdeclarative ];
+  goPackagePath = "github.com/ProtonMail/proton-bridge";
+  goDeps = ./deps.nix;
+  buildInputs = [ git qtbase qtquickcontrols2 qtmultimedia qtgraphicaleffects qtdeclarative ];
 
   meta = with stdenv.lib; {
     homepage = "https://www.protonmail.com/bridge";
